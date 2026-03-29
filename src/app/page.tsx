@@ -83,7 +83,8 @@ export default function Home() {
 
   const fetchRecipes = async () => {
     try {
-      const res = await fetch(`/api/recipes?diet=${preferences.diet}`);
+      const ingredientNames = inventory.map(i => i.name).join(',');
+      const res = await fetch(`/api/recipes?diet=${preferences.diet}&ingredients=${encodeURIComponent(ingredientNames)}`);
       const data = await res.json();
       if (data.success) setRecipes(data.recipes);
     } catch (err) {
@@ -750,7 +751,18 @@ export default function Home() {
                 <div key={j} className="group/meal cursor-pointer">
                   <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">{meal.label}</p>
                   <div className="bg-gray-50 rounded-2xl p-4 group-hover/meal:bg-primary-50 transition-colors border border-transparent group-hover/meal:border-primary-100">
-                    <h4 className="font-bold text-gray-900 group-hover/meal:text-primary-700 transition-colors leading-tight mb-2 h-10 overflow-hidden">{meal.recipe.title}</h4>
+                    <div className="flex justify-between items-start mb-3">
+                      <h4 className="font-bold text-gray-900 group-hover/meal:text-primary-700 transition-colors leading-tight mb-2 h-10 overflow-hidden">{meal.recipe.title}</h4>
+                      <div className="absolute right-4 top-4">
+                        <CheckCircle2 className="text-gray-100 group-hover:text-primary-100 w-12 h-12 transition-colors -z-0" />
+                      </div>
+                    </div>
+                    {meal.recipe.image && (
+                      <div className="mb-4 rounded-2xl overflow-hidden h-40 w-full relative shadow-sm">
+                        <img src={meal.recipe.image} alt={meal.recipe.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent" />
+                      </div>
+                    )}
                     <div className="flex flex-wrap gap-2 mb-3">
                       <span className="text-[9px] font-bold bg-white px-1.5 py-0.5 rounded text-blue-600 border border-blue-100">B: {meal.recipe.macros?.protein}g</span>
                       <span className="text-[9px] font-bold bg-white px-1.5 py-0.5 rounded text-orange-600 border border-orange-100">W: {meal.recipe.macros?.carbs}g</span>

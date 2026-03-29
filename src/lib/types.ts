@@ -21,6 +21,7 @@ export interface InventoryItem {
 export interface Recipe {
   id: string;
   title: string;
+  image?: string; // URL do zdjęcia potrawy
   time: string;
   calories: string;
   macros: Macros; // B/W/T
@@ -29,7 +30,7 @@ export interface Recipe {
   ingredients: string[];
   instructions: string[];
   difficulty: 'Łatwe' | 'Średnie' | 'Trudne';
-  source?: 'AI' | 'Community';
+  source?: 'AI' | 'Community' | 'Spoonacular';
   author?: string;
 }
 
