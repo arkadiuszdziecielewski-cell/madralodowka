@@ -87,23 +87,58 @@ export default function Home() {
     }
   };
 
+  // Pomocnicza funkcja do kompresji obrazu
+  const compressImage = (base64Str: string): Promise<string> => {
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.src = base64Str;
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const MAX_WIDTH = 1024; // Rozsądny rozmiar dla Gemini Vision
+        const MAX_HEIGHT = 1024;
+        let width = img.width;
+        let height = img.height;
+
+        if (width > height) {
+          if (width > MAX_WIDTH) {
+            height *= MAX_WIDTH / width;
+            width = MAX_WIDTH;
+          }
+        } else {
+          if (height > MAX_HEIGHT) {
+            width *= MAX_HEIGHT / height;
+            height = MAX_HEIGHT;
+          }
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx?.drawImage(img, 0, 0, width, height);
+        
+        // Kompresja do JPEG 0.7 (znaczna redukcja rozmiaru przy zachowaniu detali dla AI)
+        resolve(canvas.toDataURL('image/jpeg', 0.7));
+      };
+    });
+  };
+
   const handleScan = async () => {
-    // 1. Wywołujemy systemowy aparat/galerię
     const input = document.createElement('input');
     input.type = 'file';
     input.accept = 'image/*';
-    input.capture = 'environment'; // Preferuj tylną kamerę na mobile
+    input.capture = 'environment';
     
     input.onchange = async (e: any) => {
       const file = e.target.files[0];
       if (!file) return;
 
-      // 2. Konwersja do Base64
       const reader = new FileReader();
       reader.onloadend = async () => {
-        const base64Image = reader.result as string;
+        const originalBase64 = reader.result as string;
         
-        // 3. Rozpoczynamy proces skanowania
+        // Kompresujemy przed wysyłką, aby uniknąć Payload Too Large (limit Vercel 4.5MB)
+        const compressedBase64 = await compressImage(originalBase64);
+        
         setCurrentStep('scan');
         setIsScanning(true);
 
@@ -111,7 +146,7 @@ export default function Home() {
           const res = await fetch("/api/scan", { 
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ image: base64Image })
+            body: JSON.stringify({ image: compressedBase64 })
           });
           
           const data = await res.json();
@@ -139,7 +174,6 @@ export default function Home() {
   };
 
   const handleReceiptScan = async () => {
-    // Analogicznie dla paragonu
     const input = document.createElement('input');
     input.type = 'file';
     input.accept = 'image/*';
@@ -150,7 +184,10 @@ export default function Home() {
 
       const reader = new FileReader();
       reader.onloadend = async () => {
-        const base64Image = reader.result as string;
+        const originalBase64 = reader.result as string;
+        
+        // Kompresujemy również paragony
+        const compressedBase64 = await compressImage(originalBase64);
         
         setIsScanning(true);
         setCurrentStep('scan');
@@ -159,7 +196,7 @@ export default function Home() {
           const res = await fetch("/api/receipt", { 
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ image: base64Image })
+            body: JSON.stringify({ image: compressedBase64 })
           });
           
           const data = await res.json();
