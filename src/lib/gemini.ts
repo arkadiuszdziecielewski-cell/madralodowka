@@ -2,11 +2,11 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 
 const apiKey = process.env.GEMINI_API_KEY;
 
-// Wykorzystujemy model 1.5-flash-latest jako najbardziej wydajny i najtańszy (Flash-Lite tier)
+// Wykorzystujemy najnowszy model 2.5-flash-lite zgodnie z dostępnością API (najbardziej wydajny i najtańszy)
 const genAI = new GoogleGenerativeAI(apiKey || "MOCK_KEY");
 
 export const geminiModel = genAI.getGenerativeModel({ 
-  model: "gemini-1.5-flash-latest",
+  model: "gemini-2.5-flash-lite",
   generationConfig: {
     responseMimeType: "application/json",
   }
@@ -14,7 +14,7 @@ export const geminiModel = genAI.getGenerativeModel({
 
 // Model do analizy obrazu (Vision)
 export const geminiVisionModel = genAI.getGenerativeModel({ 
-  model: "gemini-1.5-flash-latest",
+  model: "gemini-2.5-flash-lite",
   generationConfig: {
     responseMimeType: "application/json",
   }
