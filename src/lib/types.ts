@@ -49,6 +49,10 @@ export interface UserPreferences {
   allergies: string[];
   familyMode: boolean;
   familyMembers: FamilyMember[];
+  goals?: {
+    calories: number;
+    macros: Macros;
+  };
 }
 
 export interface MealPlanDay {

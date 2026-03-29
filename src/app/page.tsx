@@ -34,7 +34,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { InventoryItem, Recipe, UserPreferences, MealPlanDay, ShoppingListItem, Category, Macros } from "@/lib/types";
 
 type AppStep = 'dashboard' | 'scan' | 'edit_inventory' | 'preferences' | 'plan';
-type MainTab = 'home' | 'pantry' | 'recipes' | 'shopping';
+type MainTab = 'home' | 'pantry' | 'recipes' | 'shopping' | 'stats';
 
 export default function Home() {
   // --- STATE ---
@@ -60,7 +60,11 @@ export default function Home() {
     dislikedIngredients: [],
     allergies: [],
     familyMode: false,
-    familyMembers: []
+    familyMembers: [],
+    goals: {
+      calories: 2000,
+      macros: { protein: 150, carbs: 50, fat: 140 }
+    }
   });
   const [showNotification, setShowNotification] = useState(false);
   const [notificationMsg, setNotificationMsg] = useState("");
@@ -259,6 +263,147 @@ export default function Home() {
 
   // --- UI COMPONENTS ---
 
+  const MacroRing = ({ val, max, label, color, unit = "g" }: { val: number, max: number, label: string, color: string, unit?: string }) => {
+    const percentage = Math.min((val / max) * 100, 100);
+    const radius = 36;
+    const circumference = 2 * Math.PI * radius;
+    const strokeDashoffset = circumference - (percentage / 100) * circumference;
+
+    return (
+      <div className="flex flex-col items-center gap-2">
+        <div className="relative w-20 h-20">
+          <svg className="w-full h-full transform -rotate-90">
+            <circle
+              cx="40"
+              cy="40"
+              r={radius}
+              stroke="currentColor"
+              strokeWidth="8"
+              fill="transparent"
+              className="text-gray-100"
+            />
+            <motion.circle
+              initial={{ strokeDashoffset: circumference }}
+              animate={{ strokeDashoffset }}
+              transition={{ duration: 1.5, ease: "easeOut" }}
+              cx="40"
+              cy="40"
+              r={radius}
+              stroke="currentColor"
+              strokeWidth="8"
+              strokeDasharray={circumference}
+              fill="transparent"
+              strokeLinecap="round"
+              className={color}
+            />
+          </svg>
+          <div className="absolute inset-0 flex flex-col items-center justify-center">
+            <span className="text-xs font-black text-gray-900 leading-none">{val}</span>
+            <span className="text-[8px] font-bold text-gray-400 uppercase">{unit}</span>
+          </div>
+        </div>
+        <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">{label}</span>
+      </div>
+    );
+  };
+
+  const NutritionalDashboard = () => {
+    // Przykładowe dane z aktualnego dnia planu
+    const dailyData = {
+      calories: 1780,
+      protein: 125,
+      carbs: 38,
+      fat: 132
+    };
+
+    const goals = preferences.goals!;
+
+    return (
+      <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
+        <div className="flex items-center justify-between">
+          <h2 className="text-3xl font-bold text-gray-900">Twój Status</h2>
+          <div className="bg-white px-4 py-2 rounded-2xl border shadow-sm flex items-center gap-2">
+            <Calendar className="w-4 h-4 text-primary-500" />
+            <span className="text-sm font-bold text-gray-600">Dzisiaj</span>
+          </div>
+        </div>
+
+        {/* Główne podsumowanie kalorii */}
+        <section className="bg-gray-900 rounded-[2.5rem] p-8 text-white shadow-2xl relative overflow-hidden">
+          <div className="relative z-10 grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
+            <div>
+              <p className="text-[10px] font-black text-white/40 uppercase tracking-[0.3em] mb-2">Pozostało Kalorii</p>
+              <div className="flex items-baseline gap-2">
+                <h3 className="text-6xl font-black tracking-tighter">{goals.calories - dailyData.calories}</h3>
+                <span className="text-xl font-medium text-white/40">kcal</span>
+              </div>
+              <div className="mt-6 flex items-center gap-3">
+                <div className="flex-1 h-3 bg-white/10 rounded-full overflow-hidden">
+                  <motion.div 
+                    initial={{ width: 0 }}
+                    animate={{ width: `${(dailyData.calories / goals.calories) * 100}%` }}
+                    className="h-full bg-gradient-to-r from-primary-400 to-primary-600"
+                  />
+                </div>
+                <span className="text-sm font-bold text-white/60">{Math.round((dailyData.calories / goals.calories) * 100)}%</span>
+              </div>
+            </div>
+            
+            <div className="flex justify-around bg-white/5 backdrop-blur-xl rounded-[2rem] p-6 border border-white/10">
+              <MacroRing val={dailyData.protein} max={goals.macros.protein} label="Białko" color="text-blue-400" />
+              <MacroRing val={dailyData.carbs} max={goals.macros.carbs} label="Węgle" color="text-orange-400" />
+              <MacroRing val={dailyData.fat} max={goals.macros.fat} label="Tłuszcze" color="text-green-400" />
+            </div>
+          </div>
+          <PieChart className="absolute -right-20 -bottom-20 w-80 h-80 text-white opacity-5" />
+        </section>
+
+        {/* Szczegółowa analiza */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {[
+            { label: 'Nawodnienie', val: '1.2', target: '2.5', unit: 'L', icon: Heart, col: 'text-blue-500', bg: 'bg-blue-50' },
+            { label: 'Błonnik', val: '18', target: '30', unit: 'g', icon: Zap, col: 'text-orange-500', bg: 'bg-orange-50' },
+            { label: 'Cukry', val: '12', target: '25', unit: 'g', icon: AlertTriangle, col: 'text-red-500', bg: 'bg-red-50' },
+          ].map((stat, i) => (
+            <div key={i} className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm group hover:shadow-md transition-all">
+              <div className="flex items-center justify-between mb-4">
+                <div className={`p-2.5 rounded-xl ${stat.bg} ${stat.col}`}>
+                  <stat.icon className="w-5 h-5" />
+                </div>
+                <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">{stat.label}</span>
+              </div>
+              <div className="flex items-baseline gap-1">
+                <span className="text-2xl font-bold text-gray-900">{stat.val}</span>
+                <span className="text-sm font-bold text-gray-400">/ {stat.target}{stat.unit}</span>
+              </div>
+              <div className="mt-4 h-1.5 bg-gray-50 rounded-full overflow-hidden">
+                <motion.div 
+                  initial={{ width: 0 }}
+                  animate={{ width: `${(parseFloat(stat.val) / parseFloat(stat.target)) * 100}%` }}
+                  className={`h-full ${stat.col.replace('text', 'bg')}`}
+                />
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Insight AI */}
+        <div className="bg-primary-50 border border-primary-100 p-6 rounded-[2rem] flex items-start gap-4">
+          <div className="bg-white p-3 rounded-2xl shadow-sm">
+            <ChefHat className="text-primary-600 w-6 h-6" />
+          </div>
+          <div>
+            <h4 className="font-bold text-gray-900">Analiza Gemini: Twoje Makro</h4>
+            <p className="text-sm text-gray-600 mt-1 leading-relaxed">
+              Jesteś na dobrej drodze do celu Keto! Masz jeszcze spory zapas tłuszczy na kolację. 
+              Sugeruję dodać awokado do wieczornego posiłku, aby domknąć bilans energetyczny.
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   const Header = () => (
     <header className="bg-white border-b px-6 py-4 flex items-center justify-between sticky top-0 z-30">
       <div className="flex items-center gap-2 cursor-pointer" onClick={() => {setCurrentStep('dashboard'); setActiveTab('home');}}>
@@ -319,8 +464,8 @@ export default function Home() {
       {/* Quick Access Grid */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         {[
+          { label: 'Makro', icon: PieChart, color: 'bg-indigo-50 text-indigo-600', tab: 'stats' },
           { label: 'Zapasy', icon: Refrigerator, color: 'bg-blue-50 text-blue-600', tab: 'pantry' },
-          { label: 'Przepisy', icon: ChefHat, color: 'bg-orange-50 text-orange-600', tab: 'recipes' },
           { label: 'Zakupy', icon: ShoppingCart, color: 'bg-green-50 text-green-600', tab: 'shopping' },
           { label: 'Rodzina', icon: Users, color: 'bg-purple-50 text-purple-600', tab: 'home' },
         ].map((item, i) => (
@@ -335,6 +480,38 @@ export default function Home() {
             <span className="font-bold text-gray-700">{item.label}</span>
           </button>
         ))}
+      </div>
+
+      {/* Quick Stats / Alerts */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div 
+          onClick={() => setActiveTab('stats')}
+          className="bg-white p-6 rounded-[2rem] border border-gray-100 shadow-sm cursor-pointer hover:shadow-md transition-all flex items-center justify-between overflow-hidden relative group"
+        >
+          <div className="relative z-10">
+            <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Dzisiejsze Makro</p>
+            <h4 className="text-xl font-bold text-gray-900">1780 / 2000 <span className="text-xs font-normal text-gray-400 uppercase">kcal</span></h4>
+            <div className="flex gap-3 mt-3">
+              <div className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-full bg-blue-400"></div><span className="text-[10px] font-bold text-gray-500 uppercase">B: 125g</span></div>
+              <div className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-full bg-orange-400"></div><span className="text-[10px] font-bold text-gray-500 uppercase">W: 38g</span></div>
+              <div className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-full bg-green-400"></div><span className="text-[10px] font-bold text-gray-500 uppercase">T: 132g</span></div>
+            </div>
+          </div>
+          <PieChart className="w-16 h-16 text-primary-500 opacity-10 group-hover:scale-110 group-hover:rotate-12 transition-transform duration-500" />
+        </div>
+
+        <div className="bg-white border-l-4 border-primary-500 p-5 rounded-2xl shadow-sm">
+          <div className="flex items-start gap-4">
+            <div className="bg-primary-100 p-2.5 rounded-xl">
+              <Zap className="text-primary-600 w-6 h-6" />
+            </div>
+            <div>
+              <p className="font-bold text-gray-900">Oszczędność</p>
+              <p className="text-sm text-gray-500 mt-1">W tym miesiącu uratowałeś produkty o wartości 45 zł.</p>
+              <button className="text-primary-600 text-xs font-bold mt-2 hover:underline">MOJE STATYSTYKI</button>
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Spoilage Alerts */}
@@ -788,6 +965,8 @@ export default function Home() {
           <PantryView />
         ) : activeTab === 'shopping' ? (
           <ShoppingListView />
+        ) : activeTab === 'stats' ? (
+          <NutritionalDashboard />
         ) : (
           <div className="flex flex-col items-center justify-center py-20 text-gray-400 space-y-4">
             <Settings className="w-16 h-16 opacity-20" />
@@ -800,10 +979,10 @@ export default function Home() {
       <nav className="fixed bottom-6 left-4 right-4 bg-white/80 backdrop-blur-xl border border-gray-100 flex justify-around items-center py-4 px-6 z-40 shadow-[0_20px_50px_rgba(0,0,0,0.1)] rounded-[2.5rem]">
         {[
           { id: 'home', icon: Refrigerator, label: 'Start' },
-          { id: 'pantry', icon: Utensils, label: 'Zapasy' },
+          { id: 'stats', icon: PieChart, label: 'Makro' },
           { id: 'voice_btn', icon: isVoiceListening ? Loader2 : Mic, label: 'Mów', special: true, isListening: isVoiceListening },
           { id: 'shopping', icon: ShoppingCart, label: 'Zakupy' },
-          { id: 'recipes', icon: Heart, label: 'Profil' },
+          { id: 'pantry', icon: Utensils, label: 'Zapasy' },
         ].map((item) => (
           <button 
             key={item.id}
