@@ -15,9 +15,9 @@ export async function POST(request: Request) {
       for (let i = 0; i < days; i++) {
         plan.push({
           day: weekdays[i % 7],
-          breakfast: { id: "m1", title: "Omlet (Mock Gemini)", time: "10 min", calories: "320 kcal", diet: ["Keto"], match: 0.9, ingredients: [], instructions: [], difficulty: 'Łatwe' },
-          lunch: { id: "m2", title: "Sałatka (Mock Gemini)", time: "15 min", calories: "450 kcal", diet: ["Keto"], match: 0.9, ingredients: [], instructions: [], difficulty: 'Łatwe' },
-          dinner: { id: "m3", title: "Kurczak (Mock Gemini)", time: "20 min", calories: "420 kcal", diet: ["Keto"], match: 0.9, ingredients: [], instructions: [], difficulty: 'Łatwe' },
+          breakfast: { id: "m1", title: "Omlet (Mock Gemini)", time: "10 min", calories: "320 kcal", macros: { protein: 20, carbs: 5, fat: 25 }, diet: ["Keto"], match: 0.9, ingredients: [], instructions: [], difficulty: 'Łatwe' },
+          lunch: { id: "m2", title: "Sałatka (Mock Gemini)", time: "15 min", calories: "450 kcal", macros: { protein: 35, carbs: 10, fat: 30 }, diet: ["Keto"], match: 0.9, ingredients: [], instructions: [], difficulty: 'Łatwe' },
+          dinner: { id: "m3", title: "Kurczak (Mock Gemini)", time: "20 min", calories: "420 kcal", macros: { protein: 40, carbs: 0, fat: 25 }, diet: ["Keto"], match: 0.9, ingredients: [], instructions: [], difficulty: 'Łatwe' },
         });
       }
 
