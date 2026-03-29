@@ -88,48 +88,110 @@ export default function Home() {
   };
 
   const handleScan = async () => {
-    setCurrentStep('scan');
-    setIsScanning(true);
-    try {
-      const res = await fetch("/api/scan", { method: "POST" });
-      const data = await res.json();
-      if (data.success) {
-        setInventory(data.items);
-        setTimeout(() => {
+    // 1. Wywołujemy systemowy aparat/galerię
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*';
+    input.capture = 'environment'; // Preferuj tylną kamerę na mobile
+    
+    input.onchange = async (e: any) => {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      // 2. Konwersja do Base64
+      const reader = new FileReader();
+      reader.onloadend = async () => {
+        const base64Image = reader.result as string;
+        
+        // 3. Rozpoczynamy proces skanowania
+        setCurrentStep('scan');
+        setIsScanning(true);
+
+        try {
+          const res = await fetch("/api/scan", { 
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ image: base64Image })
+          });
+          
+          const data = await res.json();
+          if (data.success) {
+            setInventory(data.items);
+            setTimeout(() => {
+              setIsScanning(false);
+              setCurrentStep('edit_inventory');
+              triggerNotification(data.message);
+            }, 1000);
+          } else {
+            throw new Error(data.error);
+          }
+        } catch (err: any) {
+          console.error("Error scanning:", err);
           setIsScanning(false);
-          setCurrentStep('edit_inventory');
-        }, 1000);
-      }
-    } catch (err) {
-      console.error("Error scanning:", err);
-      setIsScanning(false);
-    }
+          setCurrentStep('dashboard');
+          triggerNotification("Błąd skanowania: " + err.message);
+        }
+      };
+      reader.readAsDataURL(file);
+    };
+    
+    input.click();
   };
 
   const handleReceiptScan = async () => {
-    setIsScanning(true);
-    setCurrentStep('scan');
-    try {
-      const res = await fetch("/api/receipt", { method: "POST" });
-      const data = await res.json();
-      if (data.success) {
-        setInventory([...inventory, ...data.items.map((item: any, i: number) => ({
-          ...item,
-          id: `r-${Date.now()}-${i}`,
-          status: 'Świeże',
-          expiryDays: 7,
-          spoilageProbability: 0
-        }))]);
-        setTimeout(() => {
+    // Analogicznie dla paragonu
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*';
+    
+    input.onchange = async (e: any) => {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onloadend = async () => {
+        const base64Image = reader.result as string;
+        
+        setIsScanning(true);
+        setCurrentStep('scan');
+
+        try {
+          const res = await fetch("/api/receipt", { 
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ image: base64Image })
+          });
+          
+          const data = await res.json();
+          if (data.success) {
+            const newItems = data.items.map((item: any, i: number) => ({
+              ...item,
+              id: `r-${Date.now()}-${i}`,
+              status: 'Świeże',
+              expiryDays: 7,
+              spoilageProbability: 0
+            }));
+            setInventory([...inventory, ...newItems]);
+            
+            setTimeout(() => {
+              setIsScanning(false);
+              setCurrentStep('edit_inventory');
+              triggerNotification("Produkty z paragonu dodane!");
+            }, 1000);
+          } else {
+            throw new Error(data.error);
+          }
+        } catch (err: any) {
+          console.error("Receipt Scan Error:", err);
           setIsScanning(false);
-          setCurrentStep('edit_inventory');
-          triggerNotification("Produkty z paragonu dodane!");
-        }, 1000);
-      }
-    } catch (err) {
-      console.error("Receipt Scan Error:", err);
-      setIsScanning(false);
-    }
+          setCurrentStep('dashboard');
+          triggerNotification("Błąd paragonu: " + err.message);
+        }
+      };
+      reader.readAsDataURL(file);
+    };
+    
+    input.click();
   };
 
   const handleVoiceToggle = () => {

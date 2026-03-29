@@ -39,29 +39,52 @@ export async function POST(request: Request) {
       });
     }
 
+    // Prawdziwa integracja z Gemini Vision
+    const { image } = await request.json(); // Oczekujemy base64 w polu image
+    
+    if (!image) {
+      return NextResponse.json({ success: false, error: "Brak zdjęcia do analizy." }, { status: 400 });
+    }
+
+    // Wyciągamy czyste dane base64 i format
+    const base64Data = image.split(",")[1];
+    const mimeType = image.split(";")[0].split(":")[1];
+
     const prompt = `Zidentyfikuj produkty spożywcze na tym zdjęciu lodówki/szafki. 
     Zwróć listę produktów w formacie JSON zgodnym z interfejsem InventoryItem:
     { "items": [{ 
-      "id": "string", 
-      "name": "string", 
-      "quantity": "string", 
+      "id": "string (unikalny id)", 
+      "name": "string (polska nazwa)", 
+      "quantity": "string (np. 1 szt, 200g)", 
       "status": "Świeże|Użyć wkrótce|Zaraz się zepsuje", 
-      "expiryDays": number, 
+      "expiryDays": number (oszacuj dni), 
       "category": "lodówka|zamrażarka|szafki|przyprawy",
       "spoilageProbability": number (0-100),
       "spoilageSuggestion": "string (krótka porada co zrobić z tym produktem)"
     }] }
     Rozpoznaj polskie marki. Oceń prawdopodobieństwo zepsucia na podstawie wyglądu i typowego czasu trwałości.`;
 
-    const result = await geminiVisionModel.generateContent([prompt]);
+    const result = await geminiVisionModel.generateContent([
+      prompt,
+      {
+        inlineData: {
+          data: base64Data,
+          mimeType: mimeType
+        }
+      }
+    ]);
+
     const response = await result.response;
     const text = response.text();
-    const parsed = JSON.parse(text);
+    
+    // Gemini czasami zwraca JSON w blokach markdown, musimy to oczyścić
+    const cleanJson = text.replace(/```json\n?|```/g, "");
+    const parsed = JSON.parse(cleanJson);
 
     return NextResponse.json({
       success: true,
       items: parsed.items,
-      message: "AI Gemini Flash-Lite przeanalizowało produkty i przewidziało ich trwałość."
+      message: `AI Gemini Flash-Lite pomyślnie przeanalizowało zdjęcie i wykryło ${parsed.items.length} produktów.`
     });
 
   } catch (error) {

@@ -23,16 +23,36 @@ export async function POST(request: Request) {
       });
     }
 
+    // Prawdziwa integracja z Gemini Vision
+    const { image } = await request.json();
+    
+    if (!image) {
+      return NextResponse.json({ success: false, error: "Brak zdjęcia paragonu." }, { status: 400 });
+    }
+
+    const base64Data = image.split(",")[1];
+    const mimeType = image.split(";")[0].split(":")[1];
+
     const prompt = `Przeanalizuj to zdjęcie paragonu (np. z Biedronki, Lidla, Żabki). 
     Wyodrębnij listę zakupionych produktów spożywczych.
     Zwróć odpowiedź w formacie JSON:
     { "items": [{ "name": "string", "quantity": "string", "category": "lodówka|zamrażarka|szafki|przyprawy" }] }
     Ignoruj produkty niespożywcze (np. reklamówki, chemia). Przetłumacz skróty z paragonu na pełne nazwy.`;
 
-    const result = await geminiVisionModel.generateContent([prompt]);
+    const result = await geminiVisionModel.generateContent([
+      prompt,
+      {
+        inlineData: {
+          data: base64Data,
+          mimeType: mimeType
+        }
+      }
+    ]);
+
     const response = await result.response;
     const text = response.text();
-    const parsed = JSON.parse(text);
+    const cleanJson = text.replace(/```json\n?|```/g, "");
+    const parsed = JSON.parse(cleanJson);
 
     return NextResponse.json({
       success: true,
