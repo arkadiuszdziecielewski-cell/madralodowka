@@ -53,7 +53,7 @@ export async function GET(request: Request) {
            "difficulty": "Łatwe|Średnie|Trudne"
          }
 
-         DANE DO PRZETŁUMACZENIA: ${JSON.stringify(rawRecipes.map(r => ({
+         DANE DO PRZETŁUMACZENIA: ${JSON.stringify(rawRecipes.map((r: any) => ({
            id: r.id.toString(),
            title: r.title,
            image: r.image,
