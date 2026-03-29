@@ -17,63 +17,57 @@ export async function GET(request: Request) {
 
     if (isRealSpoonacular) {
       // 1. Pobieramy przepisy ze Spoonacular na podstawie składników
+      // Używamy complexSearch, aby uzyskać więcej informacji od razu
       const spoonRes = await fetch(
-        `https://api.spoonacular.com/recipes/complexSearch?apiKey=${SPOONACULAR_API_KEY}&includeIngredients=${ingredients}&diet=${diet.toLowerCase()}&addRecipeInformation=true&fillIngredients=true&number=3`
+        `https://api.spoonacular.com/recipes/complexSearch?apiKey=${SPOONACULAR_API_KEY}&includeIngredients=${encodeURIComponent(ingredients)}&diet=${diet.toLowerCase()}&addRecipeInformation=true&fillIngredients=true&number=3&sort=max-used-ingredients`
       );
       const spoonData = await spoonRes.json();
       rawRecipes = spoonData.results || [];
     }
 
-    if (!isRealGemini) {
-      // Fallback/Mock jeśli brak Gemini
-      const MOCK_RECIPES: Recipe[] = [
-        {
-          id: "r1",
-          title: "Cezar z Kurczakiem (Spoonacular Mock)",
-          image: "https://images.unsplash.com/photo-1550304943-4f24f54ddde9?w=800",
-          time: "15 min",
-          calories: "450 kcal",
-          macros: { protein: 35, carbs: 10, fat: 30 },
-          diet: ["Keto", "Niskokaloryczne"],
-          match: 0.95,
-          ingredients: ["Kurczak", "Sałata", "Pomidory"],
-          instructions: ["Podsmaż kurczaka.", "Wymieszaj składniki."],
-          difficulty: 'Łatwe',
-          source: 'Spoonacular'
-        },
-        {
-          id: "r2",
-          title: "Omlet z Serem (Spoonacular Mock)",
-          image: "https://images.unsplash.com/photo-1510629954389-c1e0da47d414?w=800",
-          time: "10 min",
-          calories: "320 kcal",
-          macros: { protein: 20, carbs: 5, fat: 25 },
-          diet: ["Keto", "Wege"],
-          match: 0.98,
-          ingredients: ["Jajka", "Ser Żółty"],
-          instructions: ["Rozbij jajka.", "Smaż na maśle z serem."],
-          difficulty: 'Łatwe',
-          source: 'Spoonacular'
-        }
-      ];
-      
-      return NextResponse.json({
-        success: true,
-        recipes: MOCK_RECIPES.filter(r => r.diet.includes(diet))
-      });
-    }
-
     // 2. Używamy Gemini do przetłumaczenia i wzbogacenia danych ze Spoonacular lub wygenerowania własnych
     const prompt = isRealSpoonacular && rawRecipes.length > 0
-      ? `Przetłumacz poniższe przepisy ze Spoonacular na język polski i sformatuj jako JSON zgodny z interfejsem Recipe[].
-         Zadbaj o polskie nazwy produktów i miary. Wylicz makroskładniki (B/W/T w gramach), jeśli ich brakuje.
-         Dane wejściowe: ${JSON.stringify(rawRecipes)}`
+      ? `Jesteś ekspertem kulinarnym. Przetłumacz poniższe przepisy ze Spoonacular na język polski i zwróć je jako czysty obiekt JSON zgodny z interfejsem Recipe[].
+         
+         WAŻNE ZASADY:
+         1. Zwróć TYLKO tablicę obiektów [], bez żadnego dodatkowego tekstu ani bloków markdown.
+         2. Przetłumacz nazwy potraw na apetyczne polskie nazwy.
+         3. Składniki (ingredients) i instrukcje (instructions) muszą być po polsku.
+         4. Wylicz wartości makro (protein, carbs, fat) jako LICZBY (w gramach), bazując na składnikach.
+         5. Ustal trudność: Łatwe, Średnie lub Trudne.
+         6. Zachowaj oryginalne ID i URL obrazka.
+         7. Dopasuj (match) - określ w skali 0-100 jak dobrze przepis pasuje do posiadanych składników (${ingredients}).
+
+         STRUKTURA OBIEKTU:
+         {
+           "id": "string",
+           "title": "string",
+           "image": "string",
+           "time": "string",
+           "calories": "string",
+           "macros": { "protein": number, "carbs": number, "fat": number },
+           "diet": ["string"],
+           "match": number,
+           "ingredients": ["string"],
+           "instructions": ["string"],
+           "difficulty": "Łatwe|Średnie|Trudne"
+         }
+
+         DANE DO PRZETŁUMACZENIA: ${JSON.stringify(rawRecipes.map(r => ({
+           id: r.id.toString(),
+           title: r.title,
+           image: r.image,
+           time: r.readyInMinutes + " min",
+           calories: r.nutrition?.nutrients?.find((n: any) => n.name === 'Calories')?.amount + " kcal" || "0 kcal",
+           ingredients: r.extendedIngredients?.map((i: any) => i.original),
+           instructions: r.analyzedInstructions?.[0]?.steps?.map((s: any) => s.step) || [r.instructions]
+         })))}`
       : `Zaproponuj 3 kreatywne przepisy na dania z dostępnych produktów (${ingredients}), biorąc pod uwagę dietę: ${diet}.
          Zwróć odpowiedź w formacie JSON zgodnym z interfejsem Recipe[]:
          [{ 
            "id": "string", 
            "title": "string", 
-           "image": "URL do zdjęcia (może być puste jeśli nie masz)",
+           "image": "URL do zdjęcia (użyj https://images.unsplash.com/photo-1490645935967-10de6ba17061?w=800 jeśli nie masz innego)",
            "time": "string", 
            "calories": "string", 
            "macros": { "protein": number, "carbs": number, "fat": number },
@@ -83,7 +77,8 @@ export async function GET(request: Request) {
            "instructions": ["string"], 
            "difficulty": "Łatwe|Średnie|Trudne" 
          }]
-         Wartości makro podaj w gramach (B/W/T). Zadbaj o polskie nazwy i miary.`;
+         Wartości makro podaj jako LICZBY w gramach (B/W/T). Zadbaj o polskie nazwy i miary.`;
+
 
     const result = await geminiModel.generateContent(prompt);
     const response = await result.response;
